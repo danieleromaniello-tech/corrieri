@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turno corriere</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:420px;margin:0 auto;padding:20px;background:#f3f1ee;color:#1d2430}
+select,button{font:inherit;width:100%;padding:16px;margin:8px 0;border-radius:12px;border:1px solid #bbb}
+button{background:#c8321f;color:#fff;border:0;font-weight:700}
+#stop{background:#333}
+#stato{margin-top:16px;color:#555}
+</style>
+</head>
+<body>
+<h1>Turno corriere</h1>
+<select id="nome"><option>Marco</option><option>Luca</option><option>Sara</option></select>
+<button id="go">Inizia turno</button>
+<button id="stop">Fine turno</button>
+<p id="stato">Turno non attivo.</p>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {getDatabase, ref, set, remove} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyC0iYvybNzE4TcafE8-lMAgLXRZuKECEz8",
+  authDomain: "corrieri-pizza.firebaseapp.com",
+  databaseURL: "https://corrieri-pizza-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "corrieri-pizza",
+  appId: "1:531441713887:web:c9ce9ecc0a2b75034e1f6a"
+};
+const db = getDatabase(initializeApp(firebaseConfig));
+let watchId = null, wake = null;
+const stato = document.getElementById("stato");
+const nome = () => document.getElementById("nome").value;
+document.getElementById("go").onclick = async () => {
+  if (!navigator.geolocation) { stato.textContent = "Questo telefono non supporta il GPS."; return; }
+  try { wake = await navigator.wakeLock.request("screen"); } catch (e) {}
+  const n = nome();
+  watchId = navigator.geolocation.watchPosition(
+    p => {
+      set(ref(db, "corrieri/" + n), {lat: p.coords.latitude, lng: p.coords.longitude, t: Date.now()});
+      stato.textContent = "Turno attivo. Posizione inviata alle " + new Date().toLocaleTimeString("it-IT") + ". Tieni lo schermo acceso.";
+    },
+    () => { stato.textContent = "Non riesco a leggere la posizione: consenti il GPS al browser."; },
+    {enableHighAccuracy: true, maximumAge: 3000}
+  );
+};
+document.getElementById("stop").onclick = () => {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  if (wake) wake.release();
+  remove(ref(db, "corrieri/" + nome()));
+  watchId = null;
+  stato.textContent = "Turno terminato. La tua posizione non è più condivisa.";
+};
+</script>
+</body>
+</html>
